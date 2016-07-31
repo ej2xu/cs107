@@ -1,0 +1,65 @@
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#define KEY 'Z'
+
+struct list {
+	int data;
+	struct list *next;
+};
+
+const void *const kHeapEnd = (char *)kHeapStart + kHeapSize - sizeof(list);
+bool isListOnHeap(void) {
+	cosnt char *pos;
+	for (pos = kHeapStart; pos <= kHeapEnd; pos++) {
+		const struct list *curr = (struct list *)pos;
+		if ((curr->data == 1) && isInHeap(curr->next)) {
+			curr = curr->next;
+			if ((curr->data == 2) && isInHeap(curr->next)) {
+				curr = curr->next;
+				if ((curr->data == 3) && curr->next == NULL) return true;
+			}
+		}
+	}
+	return false;
+}
+
+bool isInHeap(const void *ptr) {
+	return (ptr >=kHeapStart && ptr <= kHeapEnd);
+}
+
+void encrypt(void) {
+	int ch;
+	while ((ch = getc(stdin)) != EOF)
+		putc(ch ^ KEY, stdout);
+}
+
+void ptrTest(void) {
+	int **b, *a;
+	*b = a + 1;
+}
+
+void intOnly(void) {
+	int arr[2];
+	*(int *)arr[1] = arr[0] + 4;
+}
+
+int main (){
+  int i =3;
+  char* hi ="hi";
+  char * str = malloc(strlen(hi)+1);
+  strcpy(str,hi);
+  printf("\nstring memory is:: %p", &i);
+  fflush(stdout);
+ 
+  printf("\nstack memory is:: %p", &hi);
+  fflush(stdout);
+  printf("\nstring memory is:: %p", str);
+  fflush(stdout);
+  printf("\nstack memory is:: %p", hi);
+  fflush(stdout);
+  printf("\n");
+  return 0;
+}
+
+

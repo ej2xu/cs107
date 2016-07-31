@@ -1,0 +1,229 @@
+;; POINT functions:
+;;  make-pt   create a new point
+;;  x         get the x coordinate of a point
+;;  y         get the y coordinate of a point
+;;  dist      return the distance between two points
+;;
+;; CIRCLE functions
+;;  make-circle   create a new circle
+;;  radius        get the radius of a circle
+;;  center        get the center of a circle
+;;  intersect     given two circles, returns a list of the points
+;;                of intersection for those circles.
+;;                For the purposes of this program I have
+;;                bastardized the definition of 'intersect' a little
+;;                to give better results when the measurements are
+;;                inexact.  Don't worry about that, just use the points
+;;                returned.  Someone who is interested in Math or Geometry
+;;                might be interested to see how I compute the intersection.
+
+(define (make-pt x y) 
+  (list x y))
+
+(define (x pt) 
+  (car pt))
+
+(define (y pt) 
+  (cadr pt))
+
+(define (dist pt1 pt2) 
+  (let ((dx (- (x pt1) (x pt2)))
+        (dy (- (y pt1) (y pt2))))
+    (sqrt (+ (* dx dx) (* dy dy)))))
+
+;;
+;; 2D vector operations - used by the intersection function
+;; vectors are a lot like points.  You won't need these.
+;; 
+
+(define (add v1 v2)
+  (list (+ (car v1) (car v2))
+	(+ (cadr v1) (cadr v2))))
+
+(define (sub v1 v2)
+  (list (- (car v1) (car v2))
+	(- (cadr v1) (cadr v2))))
+
+(define (len v)
+  (sqrt (+ (* (car v) (car v))
+	   (* (cadr v) (cadr v)))))
+
+(define (scale v factor)
+  (list (* (car v) factor) 
+	(* (cadr v) factor)))
+
+(define (normalize v)
+  (scale (list (- (cadr v)) (car v)) (/ (len v))))
+
+
+(define (make-circle radius center) 
+  (list radius center))
+
+(define (radius circle) 
+  (car circle))
+
+(define (center circle) 
+  (cadr circle))
+
+;;
+;; Function: intersect
+;; -------------------
+;; Return a list of the points of intersection of the two circles.
+;; The circles may not have the same center point
+;;
+
+(define (intersect circle1 circle2)
+  (if (equal? (center circle1) (center circle2))
+      (error "Intersect cannont handle circles with the same center point.")
+      (let* ((c1 (center circle1))
+	     (r1 (radius circle1))
+	     (c2 (center circle2))
+	     (r2 (radius circle2))
+	     (d (dist c1 c2)))
+      ;; first check to see if the circles are too far apart to intersect,
+      ;; or if one circle is within another.
+	(if (or (> d (+ r1 r2)) (> r1 (+ d r2)) (> r2 (+ d r1)))
+	    ;; if there is no real intersection, use the closest tangent points on each
+	    ;; circle.  This is the bastardization above.
+	    (list (add c1 (scale (sub c2 c1) (/ r1 d)))  ;; c1-> towards c2
+		  (add c2 (scale (sub c1 c2) (/ r2 d)))) ;; c2-> towards c1
+    ;;otherwise the circles intersect normally, and I did some hairy
+    ;;geometry to show that the following computes the two points
+    ;;of intersection.
+    (let* ((r12 (* r1 r1))
+           (r22 (* r2 r2))
+           (d2 (* d d))
+           (d1 (/ (+ r12 (- r22) d2) 2 d))
+           (h (sqrt (- r12 (* d1 d1))))
+           (towards (scale (sub c2 c1) (/ d1 d))) ;;vector c1->c2
+           (perp (scale (normalize towards) h)))
+      (list (add c1 (add towards perp))
+            (add c1 (add towards (scale perp -1)))))))))
+
+;;
+;; Function: prefix-of-list
+;; ------------------------
+;; Accepts the incoming list and returns one
+;; with the same first k elements and nothing more.
+;;
+
+(define (prefix-of-list ls k)
+  (if (or (zero? k) (null? ls)) '()
+      (cons (car ls) (prefix-of-list (cdr ls) (- k 1)))))
+
+
+(define (partition pivot num-list cmp)
+  (if (null? num-list) '(() ())
+      (let ((split-of-rest (partition pivot (cdr num-list) cmp)))
+	(if (cmp (car num-list) pivot)
+	    (list (cons (car num-list) (car split-of-rest)) (cadr split-of-rest))
+	    (list (car split-of-rest) (cons (car num-list) (car (cdr split-of-rest))))))))
+
+
+(define (quicksort num-list cmp)
+  (if (<= (length num-list) 1) num-list
+      (let ((split (partition (car num-list) (cdr num-list) cmp)))
+	(append (quicksort (car split) cmp) 
+		(list (car num-list)) 
+		(quicksort (cadr split) cmp)))))
+
+
+(define (remove elem ls)
+  (cond ((null? ls) '())
+	((equal? (car ls) elem) (remove elem (cdr ls)))
+	(else (cons (car ls) (remove elem (cdr ls))))))
+                  
+;; 
+;; Function: all-guesses
+;; ---------------------
+;; Given a list of distances and a list of stars, return a list of all
+;; the possible guesses.  A single guess is a list of circles which pairs
+;; each distance with one of the stars.
+;; 
+
+(define (all-guesses distances stars)
+  (if (or (null? distances) (null? stars)) '(())
+      (apply append 
+	     (map (lambda (star)
+		    (map (lambda (pair) 
+			   (cons (list (car distances) star) pair))
+			 (all-guesses (cdr distances) (remove star stars))
+			 )
+		    )
+		  stars))))
+
+(define *distances-1* '(2.65 5.55 5.25))
+(define *stars-1* '((0 0) (4 6) (10 0) (7 4) (12 5)))
+
+(define *distances-2* '(2.5 11.65 7.75))
+(define *stars-2* '((0 0) (4 4) (10 0)))
+
+
+(define (intersection-points circles-list)
+  (if (<= (length circles-list) 1) '()
+      (append (apply append
+		     (map (lambda(value) (intersect (car circles-list) value))
+			  (cdr circles-list)))
+	      (intersection-points (cdr circles-list)))))
+
+
+(define (distance-product point list-of-points)
+  (apply * (map (lambda (value) (dist point value)) 
+		(remove point list-of-points))))
+
+
+(define (rate-points ls)
+  (map (lambda (value) (list (distance-product value ls) value)) ls))
+
+
+(define (sort-points ls)
+  (quicksort ls (lambda (one two) (< (car one) (car two)))))
+
+;; 
+;; Function: clumped-points
+;; ---------------------
+;;
+;; Takes a list of points, rates
+;; them, sorts them, and then returns the half of the points with the smallest ratings.
+;; clumped-points should return the points without the ratings.
+;; 
+;; #|kawa:12|# (clumped-points '((0 0) (2 0) (6 0)))
+;;      ((2 0))
+;; #|kawa:13|# (clumped-points '((0 0) (2 0) (6 0) (1 0)))
+;;      ((1 0) (2 0))
+;;
+
+(define (clumped-points ls)
+  (apply append (map cdr (prefix-of-list (sort-points (rate-points ls))
+					 (quotient (length ls) 2)))))
+
+
+(define (average-point ls)
+  (let ((avg-pt (list (/ (apply + (map x ls)) (length ls)) (/ (apply + (map y ls)) (length ls)))))
+    (list (distance-product avg-pt ls) avg-pt)))
+
+
+(define (best-estimate ls)
+  (average-point (clumped-points (intersection-points ls))))
+
+;; 
+;; Function: where-am-i
+;; ---------------------
+;;
+;; Compute all the possible guesses, use best-estimate to get an answer out of
+;; each one, and sort the estimates in increasing order of distance rating. The result is a
+;; list of rated points.
+;;
+;; #|kawa:17|# (where-am-i '(2.5 11.65 7.75) '((0 0) (4 4) (10 0)))
+;;     ((5.164102748844367E-6 (11.481441859657613 2.001220110464802))
+;;     (0.3394092159986836 (-1.8429290506186957 -1.216560811506545))
+;;     (0.6676116235553851 (7.76704142138513 0.4622501635210244))
+;;     (0.7871787994250546 (2.128838984322123 0.5892556509887895))
+;;     (4.398427430402362 (3.9811875000000003 6.126803974552016))
+;;     (45.38616651704703 (4.326820849071189 4.1540809322972985))) 
+;;
+
+(define (where-am-i distances stars)
+  (sort-points
+   (map best-estimate (all-guesses distances stars))))
+

@@ -1,0 +1,128 @@
+#include "vector.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <assert.h>
+#include <search.h>
+#define INITALLOC 4
+/*
+typedef struct {
+	void *elems;
+	int elemSize;
+	int loglength;
+	int alloclength;
+	int initalloc;
+	VectorFreeFunction freefn;
+} vector;
+*/
+void VectorNew(vector *v, int elemSize, VectorFreeFunction freefn, int initialAllocation)
+{
+  assert(elemSize > 0);
+  assert(initialAllocation >= 0);
+  v->elemSize = elemSize;
+  v->loglength = 0;
+  if (initialAllocation == 0) initialAllocation = INITALLOC;
+  v->initalloc = initialAllocation;
+  v->alloclength = initialAllocation;
+  v->freefn = freefn;
+  v->elems = malloc(initialAllocation * elemSize);
+  assert(v->elems != NULL);
+}
+
+void VectorDispose(vector *v)
+{
+  assert (v != NULL);
+  if (v->loglength > 0 && v->freefn != NULL) {
+    for (int i = 0; i < v->loglength; i++) {
+      v->freefn((char *)v->elems + i * v->elemSize);
+    }
+  }
+  free(v->elems);
+}
+
+int VectorLength(const vector *v)
+{ 
+  assert (v != NULL);
+  return v->loglength; 
+}
+
+void *VectorNth(const vector *v, int position)
+{
+  assert (v != NULL);
+  assert(position < v->loglength && position >= 0);
+  return (void *)((char *)v->elems + position * v->elemSize); 
+}
+
+void VectorReplace(vector *v, const void *elemAddr, int position)
+{
+  assert (v != NULL);
+  assert(position < v->loglength && position >= 0);
+  void* positionP = (char *)v->elems + position * v->elemSize;  
+  if(v->freefn != NULL) v->freefn(positionP);
+  memcpy(positionP, elemAddr, v->elemSize); 
+}
+
+void VectorInsert(vector *v, const void *elemAddr, int position)
+{
+  assert (v != NULL);
+  assert(position <= v->loglength && position >= 0);
+  if (v->alloclength == v->loglength){
+    v->alloclength += v->initalloc;
+    v->elems = realloc(v->elems, v->alloclength * v->elemSize);
+    assert(v->elems != NULL);
+  }
+  char* positionP = (char *)v->elems + position * v->elemSize; 
+  if (position != v->loglength) {
+    int sfSize = (v->loglength - position) * v->elemSize;
+    memmove(positionP + v->elemSize, positionP, sfSize);
+  }    
+  memcpy(positionP, elemAddr, v->elemSize);  
+  v->loglength++;
+}
+
+void VectorAppend(vector *v, const void *elemAddr)
+{
+  VectorInsert(v, elemAddr, v->loglength);
+}
+
+void VectorDelete(vector *v, int position)
+{ 
+  assert (v != NULL);
+  assert(position < v->loglength && position >= 0);
+  char* positionP = (char *)v->elems + position * v->elemSize;
+  if(v->freefn != NULL) v->freefn(positionP);
+  if (position != v->loglength - 1) {
+    int sfSize = (v->loglength - 1 - position) * v->elemSize;
+    memmove(positionP, positionP + v->elemSize, sfSize);
+  }
+  v->loglength--;  
+}
+
+void VectorSort(vector *v, VectorCompareFunction comparefn)
+{
+  assert(comparefn != NULL);
+  assert (v != NULL);
+  qsort(v->elems, v->loglength, v->elemSize, comparefn);
+}
+
+void VectorMap(vector *v, VectorMapFunction mapfn, void *auxData)
+{
+  assert(mapfn != NULL);
+  assert (v != NULL);
+    for(int i = 0;i < v->loglength; i++)
+      mapfn((char*)v->elems + i * v->elemSize, auxData);
+}
+
+int VectorSearch(const vector *v, const void *key, VectorCompareFunction searchfn, int startIndex, bool isSorted)
+{ 
+  assert(v != NULL);
+  assert(startIndex >= 0 && startIndex <= v->loglength);
+  assert(key != NULL && searchfn != NULL);
+  void * base = (char *)v->elems + startIndex * v->elemSize;
+  size_t size = v->loglength - startIndex;
+  char* position;  
+  if(isSorted) position = bsearch(key, base, size, v->elemSize, searchfn);
+  else position = lfind(key, base, &size,v->elemSize, searchfn);
+  if(position != NULL) return (position - (char *)v->elems) / v->elemSize;
+  else return -1;
+} 

@@ -1,0 +1,49 @@
+static void Welcome(const char *welcomeTextURL);
+static void LoadStopWords(hashset *stopWords, const char *stopWordsURL);
+static void BuildIndices(rssDatabase *db, const char *feedsFileName);
+static void ProcessFeed(rssDatabase *db, const char *remoteDocumentName);
+static void PullAllNewsItems(rssDatabase *db, urlconnection *urlconn);
+
+static void ProcessStartTag(void *userData, const char *name, const char **atts);
+static void ProcessEndTag(void *userData, const char *name);
+static void ProcessTextData(void *userData, const char *text, int len);
+
+static void NewThreadParseArticle(rssDatabase *db, const char *articleTitle, const char *articleURL);
+static void* PthreadParseArticle(void * threadData);
+static void ParseArticle(rssDatabase *db, const char *articleTitle, const char *articleURL);
+
+static void ScanArticle(streamtokenizer *st, int articleID, hashset *indices, hashset *stopWords, 
+			 pthread_mutex_t* indicesLock, pthread_mutex_t* stopWordsLock);
+static bool WordIsWorthIndexing(const char *word, hashset *stopWords);
+static void AddWordToIndices(hashset *indices, const char *word, int articleIndex);
+static void QueryIndices(rssDatabase *db);
+static void ProcessResponse(rssDatabase *db, const char *word);
+static void ListTopArticles(rssIndexEntry *index, vector *previouslySeenArticles);
+static bool WordIsWellFormed(const char *word);
+
+static int StringHash(const void *elem, int numBuckets);
+static int StringCompare(const void *elem1, const void *elem2);
+static void StringFree(void *elem);
+
+static void NewsArticleClone(rssNewsArticle *article, const char *title, 
+			     const char *server, const char *fullURL);
+static int NewsArticleCompare(const void *elem1, const void *elem2);
+static void NewsArticleFree(void *elem);
+
+static int IndexEntryHash(const void *elem, int numBuckets);
+static int IndexEntryCompare(const void *elem1, const void *elem2);
+static void IndexEntryFree(void *elem);
+
+static int ArticleIndexCompare(const void *elem1, const void *elem2);
+static int ArticleFrequencyCompare(const void *elem1, const void *elem2);
+
+static void ThreadDataFree(void *elem);
+static int ConnectionsLockHash(const void* elemAddr, int numBuckets);
+static int ConnectionsLockCompare(const void* elemAddr1, const void* elemAddr2);
+static void ConnectionsLockFree(void* elemAddr);
+static void initThreadsData(rssDatabase *db);
+static void cleanThreadData(rssDatabase *db);
+static void unlockConnection(rssDatabase *db, const char* serverURL);
+static void lockConnection(rssDatabase *db, const char* serverURL);
+static sem_t* findServerLock(hashset *serverLocks, pthread_mutex_t *dataLock, const char* serverURL);
+
